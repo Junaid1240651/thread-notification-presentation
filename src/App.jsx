@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const SLIDE_COUNT = 15;
+const SLIDE_COUNT = 10;
 
 const ICON = {
   flow: "🔄",
@@ -75,7 +75,7 @@ function CurrentFlowDiagram() {
       <div className="flow-row">
         <span className="box">Desktop</span>
         <span className="arrow">→</span>
-        <span className="box">"Suspicious Site" for warning/danger</span>
+        <span className="box">"Suspicious Site" for warning/danger (2 notification types)</span>
       </div>
     </div>
   );
@@ -94,9 +94,8 @@ function NewLayeredFlowDiagram() {
         <span className="box">Layer 4: Tiered notifications</span>
       </div>
       <div className="flow-row flow-row-hint">
-        (500–1000 + Tranco 100k) → (Phishing.DB, UHB, URLhaus, PhishTank) →
-        (threat DB before LLM, tiered cache) → (SAFE / CAUTION in-app / WARNING
-        / DANGER)
+        (Built-in 500–1k + Tranco/Majestic 1M via sync) → (Phishing.DB, UHB, URLhaus, PhishTank) →
+        (threat DB before LLM, tiered cache) → (2 notification types: suspicious / dangerous)
       </div>
     </div>
   );
@@ -118,344 +117,39 @@ const slides = [
     ),
   },
   {
-    title: "Current system: Components & flow",
+    title: "Current system & cons (what we have today and what's wrong)",
     icon: ICON.flow,
     content: (
       <div className="space-y-6">
         <div className="card-section card-section-flow">
-          <h3>System components (current implementation)</h3>
+          <h3>Components & flow (current architecture)</h3>
           <div className="card-inner card-inner-flow">
-            <h4>Desktop (spam-site-desktop)</h4>
+            <h4>Desktop • Backend • Agent (who does what)</h4>
             <ul className="text-sm">
-              <li>Browser Monitor Service – captures URLs from Chrome/Edge</li>
-              <li>URL Filter – excludes chrome://, about:, localhost</li>
-              <li>
-                URL Heuristic Analyzer – local pattern-based risk (optional,
-                currently disabled)
-              </li>
-              <li>
-                URL Safety Service – batches URLs every 10s, sends to backend
-              </li>
-              <li>Notification Helper – displays threat warnings</li>
+              <li><strong>Desktop:</strong> Browser Monitor (watches tabs), URL Filter, Heuristic (turned off), URL Safety Service (batches checks every 10s), Notification Helper (shows alerts).</li>
+              <li><strong>Backend:</strong> URL Safety Controller/Service (receives requests), API Client that talks to the Agent.</li>
+              <li><strong>Agent:</strong> Allowlist (.gov, .edu + env only), Risk Engine (WHOIS, DNS, SSL, content), Trust Detector (LLM), AI Phishing check, Cache 1 hour.</li>
+              <li><strong>Threat intel:</strong> Not implemented yet — Safe Browsing, VirusTotal, PhishTank are placeholders only.</li>
+              <li><strong>Domain age / typosquatting:</strong> Only in an old, deprecated path; not used in the main risk-engine path.</li>
             </ul>
           </div>
-          <div className="card-inner card-inner-flow">
-            <h4>Backend (spam-site-backend) • Agent (spam-site-agent)</h4>
-            <ul className="text-sm">
-              <li>
-                Backend: URL Safety Controller, URL Safety Service, API Client →
-                forwards to agent
-              </li>
-              <li>
-                Agent: URL Safety Agent, Allowlist (.gov, .edu, TRUSTED_DOMAINS
-                env only), Risk Engine (WHOIS, DNS, SSL, content), Trust
-                Detector (LLM), AI Phishing Detector, Cache (1h TTL)
-              </li>
-            </ul>
-          </div>
-          <h3 className="slide-subtitle">Detection flow (agent steps 1–9)</h3>
           <CurrentFlowDiagram />
-          <div className="card-inner card-inner-flow">
-            <h4>Agent steps</h4>
-            <ul className="text-sm">
-              <li>
-                1. Allowlist check → 2. Normalize URL, apex domain → 3. WHOIS,
-                placeholder threat intel, DNS → 4. LLM Trust Detection (single
-                point of failure) → 5. Content fetch → 6. LLM Phishing
-                Assessment → 7. SSL check → 8. Risk aggregation (SAFE ≤0.25,
-                CAUTION ≤0.6, UNSAFE &gt;0.6) → 9. Cache 1h. Desktop: verdict
-                warning/danger → "WARNING: Suspicious Site".
-              </li>
-            </ul>
-          </div>
         </div>
-      </div>
-    ),
-  },
-  {
-    title: "Cons of current implementation (1–4)",
-    icon: ICON.cons,
-    content: (
-      <div className="card-section card-section-cons">
-        <h3>{ICON.cons} Critical & high</h3>
-        <div className="card-inner card-inner-cons">
-          <h4>CON 1: Insufficient Allowlist 🔴 Critical</h4>
-          <div className="text-sm">
-            Only .gov and .edu TLDs + env; no built-in google.com, gmail.com,
-            openai.com, atlassian.net, github.com, etc. Every major site goes
-            through full pipeline → Gmail, ChatGPT, Atlassian analyzed as
-            "potentially suspicious" → users bombarded with false positives.
-          </div>
-          <div className="text-sm mt-2">
-            <strong>Example:</strong> User visits mail.google.com → not in
-            allowlist → full WHOIS + LLM + content fetch → LLM returns UNKNOWN →
-            login forms detected → risk 0.45 → CAUTION → "WARNING: Suspicious
-            Site".
-          </div>
-        </div>
-        <div className="card-inner card-inner-cons">
-          <h4>CON 2: LLM single point of failure 🔴 Critical</h4>
-          <div className="text-sm">
-            Trust = one LLM call (detectDomainTrust). If UNKNOWN or timeout → no
-            fallback; no risk capping for known brands. OpenAI, Microsoft,
-            Google can randomly get flagged.
-          </div>
-        </div>
-        <div className="card-inner card-inner-cons">
-          <h4>CON 3: Zero threat intelligence 🔴 High</h4>
-          <div className="text-sm">
-            Threat intel is placeholder only. No PhishTank, URLhaus,
-            Phishing.Database. Misses 90% of known threats. Phishing.Database
-            has 857k domains, Ultimate Hosts 1.39M, URLhaus 200k+ — system
-            checks none. Known phishing can be analyzed as "safe" if it passes
-            heuristics.
-          </div>
-        </div>
-        <div className="card-inner card-inner-cons">
-          <h4>CON 4: Undifferentiated notification 🟡 Medium</h4>
-          <div className="text-sm">
-            CAUTION and UNSAFE both trigger same strong notification.
-            Notification fatigue → users ignore all warnings → vulnerable when
-            visiting actual phishing.
-          </div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Cons of current implementation (5–8) & summary",
-    icon: ICON.cons,
-    content: (
-      <div className="space-y-6">
         <div className="card-section card-section-cons">
-          <h3>CON 5–8</h3>
-          <div className="card-inner card-inner-cons">
-            <h4>CON 5: High latency 🟡 Medium</h4>
-            <div className="text-sm">
-              Min 10s batch + 5–30s agent → 15–40+ s before warning. WHOIS
-              ~2–5s, LLM trust ~2–5s, content fetch ~1–3s, LLM phishing ~2–5s.
-              User can be on phishing page 30+ s before notification.
-            </div>
-          </div>
-          <div className="card-inner card-inner-cons">
-            <h4>CON 6: Inadequate URL feature extraction 🟡 Medium</h4>
-            <div className="text-sm">
-              No domain age, typosquatting, homograph (αpple.com vs apple.com),
-              entropy/DGA. Misses newly registered domains (common phishing
-              indicator), brand impersonation.
-            </div>
-          </div>
-          <div className="card-inner card-inner-cons">
-            <h4>CON 7: Poor cache strategy 🟢 Low</h4>
-            <div className="text-sm">
-              Single 1h TTL for all verdicts. False positive (e.g. Gmail)
-              persists 60 min. Should be: SAFE 24h, CAUTION 5–10 min, WARNING 10
-              min, DANGER 1h.
-            </div>
-          </div>
-          <div className="card-inner card-inner-cons">
-            <h4>
-              CON 8: No commercial viability for third-party APIs 🟡 Medium
-            </h4>
-            <div className="text-sm">
-              Google Safe Browsing v4 non-commercial only; VirusTotal public API
-              cannot be used in commercial products. Must use open-source feeds
-              or pay (Web Risk API $200/400k).
-            </div>
-          </div>
-          <table className="storage-table mt-4">
-            <thead>
-              <tr>
-                <th>Issue</th>
-                <th>Severity</th>
-                <th>Impact</th>
-                <th>Business risk</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Insufficient Allowlist</td>
-                <td>🔴 Critical</td>
-                <td>High false positives</td>
-                <td>User churn, bad reviews</td>
-              </tr>
-              <tr>
-                <td>LLM single point of failure</td>
-                <td>🔴 Critical</td>
-                <td>Unpredictable false positives</td>
-                <td>Trust erosion</td>
-              </tr>
-              <tr>
-                <td>No threat intelligence</td>
-                <td>🔴 High</td>
-                <td>Misses 90% known threats</td>
-                <td>Security vulnerability</td>
-              </tr>
-              <tr>
-                <td>Poor notification UX</td>
-                <td>🟡 Medium</td>
-                <td>Notification fatigue</td>
-                <td>Reduced effectiveness</td>
-              </tr>
-              <tr>
-                <td>High latency / Weak extraction / API restrictions</td>
-                <td>🟡 Medium</td>
-                <td>30+ s delay; gaps; limits</td>
-                <td>UX; security; constraints</td>
-              </tr>
-              <tr>
-                <td>Inefficient caching</td>
-                <td>🟢 Low</td>
-                <td>False positives repeat 1h</td>
-                <td>User annoyance</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Industry research: How enterprise products do it",
-    icon: ICON.plan,
-    content: (
-      <div className="space-y-6">
-        <div className="card-section card-section-plan">
-          <h3>Four layers (Norton, McAfee, Kaspersky, etc.)</h3>
-          <div className="card-inner card-inner-plan">
-            <h4>Layer 1: Instant local (0–50 ms)</h4>
-            <div className="text-sm">
-              Local allowlist (top 100k–1M), local blocklist (daily threat
-              feeds), quick pattern (IP hostname, bad TLDs). Bloom filters, hash
-              sets. 95% of URLs resolved instantly.
-            </div>
-          </div>
-          <div className="card-inner card-inner-plan">
-            <h4>Layer 2: Cloud reputation (100–500 ms)</h4>
-            <div className="text-sm">
-              Query reputation DB, community threat intel, category (ad,
-              tracker, malware, phishing).
-            </div>
-          </div>
-          <div className="card-inner card-inner-plan">
-            <h4>Layer 3: Deep content (1–10 s) • Layer 4: ML/behavioral</h4>
-            <div className="text-sm">
-              Fetch content, WHOIS age, SSL inspection, certificate
-              transparency. Heuristic scoring, anomaly detection, zero-day
-              models.
-            </div>
-          </div>
-          <h3 className="slide-subtitle">Principles</h3>
+          <h3>{ICON.cons} Key cons (critical problems with current system)</h3>
           <ul className="slide-points">
-            <li>
-              <strong>Defense in depth:</strong> Never rely on one signal;
-              multiple independent checks.
-            </li>
-            <li>
-              <strong>Confidence-based:</strong> Probabilistic risk (0–15 allow,
-              55–75 warning, 75–90 block).
-            </li>
-            <li>
-              <strong>Fail open:</strong> When in doubt allow + log; don't block
-              all unknown.
-            </li>
-            <li>
-              <strong>Tiered response:</strong> Known malware = block;
-              suspicious new domain = banner only.
-            </li>
+            <li><strong>CON 1–2 (Critical):</strong> Our allowlist only has .gov and .edu (and a few from env). So when users visit Gmail, ChatGPT, or Atlassian we often wrongly flag them as suspicious. Also, we rely on one LLM call for “trust”; if it fails or is slow, we have no fallback.</li>
+            <li><strong>CON 3 (High):</strong> We do not use any real threat lists. Phishing.Database (857k domains), Ultimate Hosts (1.39M), URLhaus (200k+) exist but we do not check them, so we miss most known-bad sites.</li>
+            <li><strong>CON 4–6 (Medium):</strong> We show the same strong notification for both “caution” and “unsafe,” so users get tired and ignore all warnings. Response is slow (15–40 seconds). We do not use domain age, typosquatting, or homograph checks in the main path.</li>
+            <li><strong>CON 7–8:</strong> We cache every result for 1 hour (even wrong “safe” verdicts). Google Safe Browsing is non-commercial only; Web Risk API costs $200 per 400k requests after the free tier.</li>
           </ul>
-          <div className="card-inner mt-4">
-            <h4>Latency benchmarks (enterprise)</h4>
-            <div className="text-sm">
-              Local allowlist &lt;5 ms (95%); blocklist &lt;5 ms (3%); cloud
-              &lt;200 ms (85%); deep scan &lt;3 s (10%). 95% of decisions in
-              &lt;10 ms; deep scans only for &lt;10% of URLs.
-            </div>
-          </div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Improvement plan & new architecture",
-    icon: ICON.plan,
-    content: (
-      <div className="space-y-6">
-        <div className="card-section card-section-plan">
-          <h3>{ICON.plan} Layered approach</h3>
-          <NewLayeredFlowDiagram />
-          <div className="card-inner card-inner-plan">
-            <h4>Key architectural improvements</h4>
-            <ul className="text-sm">
-              <li>
-                <strong>1. Allowlist-first:</strong> 95% of legitimate traffic
-                instant; zero latency for Gmail/ChatGPT; backend load −90%.
-              </li>
-              <li>
-                <strong>2. Community threat intel:</strong> 2.5M+ known-bad
-                checked locally → instant block; catches 90% of threats; no API
-                latency.
-              </li>
-              <li>
-                <strong>3. LLM demotion:</strong> LLM optional supplementary;
-                system works if LLM fails; fewer API calls, cost −95%.
-              </li>
-              <li>
-                <strong>4. Differentiated caching:</strong> SAFE 24h, CAUTION
-                6h, WARNING 10 min, DANGER 1h.
-              </li>
-              <li>
-                <strong>5. Tiered UX:</strong> SAFE = none; CAUTION = in-app
-                banner; WARNING/DANGER = system notification.
-              </li>
-            </ul>
-          </div>
           <table className="storage-table mt-4">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>Current</th>
-                <th>New system</th>
-                <th>Improvement</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Issue</th><th>Severity</th><th>Impact</th></tr></thead>
             <tbody>
-              <tr>
-                <td>False positive rate</td>
-                <td>~15–20%</td>
-                <td>&lt;1%</td>
-                <td>15–20x</td>
-              </tr>
-              <tr>
-                <td>True positive rate</td>
-                <td>~70–80%</td>
-                <td>&gt;95%</td>
-                <td>1.2x</td>
-              </tr>
-              <tr>
-                <td>Latency known-good</td>
-                <td>15–30s</td>
-                <td>&lt;10 ms</td>
-                <td>1500–3000x</td>
-              </tr>
-              <tr>
-                <td>Latency known-bad</td>
-                <td>15–30s</td>
-                <td>&lt;10 ms</td>
-                <td>1500–3000x</td>
-              </tr>
-              <tr>
-                <td>Backend load</td>
-                <td>100%</td>
-                <td>~10%</td>
-                <td>90% reduction</td>
-              </tr>
-              <tr>
-                <td>LLM API costs</td>
-                <td>100%</td>
-                <td>~5%</td>
-                <td>95% reduction</td>
-              </tr>
+              <tr><td>Insufficient Allowlist / LLM SPOF</td><td>🔴 Critical</td><td>False positives; trust erosion</td></tr>
+              <tr><td>No threat intel</td><td>🔴 High</td><td>Misses 90% known threats</td></tr>
+              <tr><td>Notification UX / Latency / Extraction / API</td><td>🟡 Medium</td><td>Fatigue; 30+ s; gaps; limits</td></tr>
+              <tr><td>Inefficient caching</td><td>🟢 Low</td><td>False positives repeat 1h</td></tr>
             </tbody>
           </table>
         </div>
@@ -463,311 +157,176 @@ const slides = [
     ),
   },
   {
-    title: "Open source: Tier 1 feeds (must integrate)",
+    title: "Industry research & improvement plan (how others do it and our layered approach)",
+    icon: ICON.plan,
+    content: (
+      <div className="space-y-6">
+        <div className="card-section card-section-plan">
+          <h3>Four layers – how enterprise products do it (Norton, McAfee, Kaspersky)</h3>
+          <ul className="slide-points text-sm">
+            <li><strong>Layer 1 (fastest):</strong> Check if the URL is in our <em>allowlist</em> (1 million trusted sites from Tranco/Majestic) or in our <em>blocklist</em> (known-bad sites from daily threat feeds). If yes, we decide immediately: trusted = safe, known-bad = block. <strong>Result:</strong> Answer in under 5 milliseconds for about 95% of URLs.</li>
+            <li><strong>Layer 2 (medium):</strong> If not in Layer 1, we ask <em>cloud reputation</em> services and <em>threat intel</em> (external APIs that know if a URL is malicious). <strong>Result:</strong> Answer in about 100–500 milliseconds.</li>
+            <li><strong>Layer 3–4 (slower, for unclear cases):</strong> We do <em>deep content</em> checks (fetch the page, check WHOIS for domain registration info, check SSL certificate). Then we use <em>ML and heuristics</em> (rules + machine learning) only for URLs that are still borderline (not clearly safe or bad).</li>
+          </ul>
+          <h3 className="slide-subtitle">Principles (defense in depth, fail open, tiered response)</h3>
+          <ul className="text-sm slide-points">
+            <li><strong>Defense in depth:</strong> We never rely on one check; we use several independent checks.</li>
+            <li><strong>Confidence-based:</strong> We turn risk into a score (0–100): 0–25 = SAFE, 25–50 = CAUTION, 50–75 = WARNING, 75–100 = DANGER. Actions and notifications match these bands (per plan §6.1).</li>
+            <li><strong>Fail open:</strong> When we are unsure, we allow the URL and log it (we do not block everything unknown).</li>
+            <li><strong>Tiered response:</strong> Different action per risk level: safe = no notification; caution = warning notification (system); danger = critical notification (system). We show only system notifications, no in-app banners.</li>
+          </ul>
+        </div>
+        <div className="card-section card-section-plan">
+          <h3>{ICON.plan} Our layered approach (allowlist → blocklist → heuristics → LLM)</h3>
+          <NewLayeredFlowDiagram />
+          <ul className="slide-points text-sm">
+            <li><strong>Order we want:</strong> Check allowlist first (trusted sites), then blocklist (2.5M+ known-bad domains from threat feeds). Only use the LLM for URLs that are still unclear after that.</li>
+            <li><strong>Cache:</strong> Keep results for different lengths by verdict: SAFE = 24 hours, CAUTION = 6 hours, WARNING = 10 minutes, DANGER = 1 hour (so a false “safe” does not stick for too long).</li>
+            </ul>
+          <table className="storage-table mt-4">
+            <thead><tr><th>Metric (what we measure)</th><th>Current</th><th>New</th><th>Improvement</th></tr></thead>
+            <tbody>
+              <tr><td>False positive (safe sites wrongly flagged)</td><td>~15–20%</td><td>&lt;1%</td><td>15–20x better</td></tr>
+              <tr><td>Latency for known-good or known-bad URLs (time until we show result)</td><td>15–30 s</td><td>&lt;10 ms</td><td>1500–3000x faster</td></tr>
+              <tr><td>Backend load / LLM cost (how much work and money)</td><td>100%</td><td>~10% / ~5%</td><td>90% / 95% reduction</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: "Open-source feeds & integration (Tier 1 blocklist sources we must use)",
     icon: ICON.sources,
     content: (
       <div className="space-y-6">
         <div className="card-section card-section-sources">
-          <h3>Phishing.Database</h3>
+          <h3>Tier 1 (must integrate – known-bad lists we will use)</h3>
           <div className="feed-card">
-            <h4>Repository & downloads</h4>
-            <div className="meta">
-              MIT • 857k domains, 784k URLs • Hourly • Very low false positive
-              (~0.1%)
-            </div>
-            <ul className="feed-links">
-              <li>
-                <a
-                  href="https://github.com/Phishing-Database/Phishing.Database"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  GitHub: Phishing-Database/Phishing.Database
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Active domains (plain text)
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-links-ACTIVE.txt"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Active URLs/links (plain text)
-                </a>
-              </li>
+            <ul className="feed-links text-sm">
+              <li><strong>Phishing.Database</strong> — 857k domains (MIT license). <a href="https://github.com/Phishing-Database/Phishing.Database" target="_blank" rel="noopener noreferrer">GitHub</a> • <a href="https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt" target="_blank" rel="noopener noreferrer">domains (download)</a> • <a href="https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-links-ACTIVE.txt" target="_blank" rel="noopener noreferrer">links (download)</a></li>
+              <li><strong>Ultimate Hosts Blacklist</strong> — 1.39M domains. <a href="https://github.com/Ultimate-Hosts-Blacklist/Ultimate.Hosts.Blacklist" target="_blank" rel="noopener noreferrer">GitHub</a> • <a href="https://hosts.ubuntu101.co.za/domains.list" target="_blank" rel="noopener noreferrer">domains.list (download)</a></li>
+              <li><strong>URLhaus</strong> — ~200k malware/phishing URLs. <a href="https://urlhaus.abuse.ch/" target="_blank" rel="noopener noreferrer">Project</a> • <a href="https://urlhaus.abuse.ch/downloads/text/" target="_blank" rel="noopener noreferrer">text</a> • <a href="https://urlhaus.abuse.ch/downloads/csv/" target="_blank" rel="noopener noreferrer">CSV</a></li>
+              <li><strong>PhishTank</strong> — ~15k community-reported phishing URLs. <a href="https://www.phishtank.com/" target="_blank" rel="noopener noreferrer">Website</a> • <a href="https://data.phishtank.com/data/online-valid.csv" target="_blank" rel="noopener noreferrer">online-valid.csv (download)</a></li>
             </ul>
           </div>
-          <div className="feed-card">
-            <h4>Ultimate Hosts Blacklist</h4>
-            <div className="meta">
-              MIT • 1.39M domains, 149k IPs • Daily 19:00 UTC • Malware,
-              phishing, ransomware, ads
+          <h3 className="slide-subtitle">Tier 2 (optional blocklists) & Allowlist (trusted-domain sources)</h3>
+          <div className="feed-card text-sm">
+            <strong>Tier 2 (optional):</strong> <a href="https://github.com/sefinek/Sefinek-Blocklist-Collection" target="_blank" rel="noopener noreferrer">Sefinek</a> (6M+) • <a href="https://blocklist.sefinek.net/generated/v1" target="_blank" rel="noopener noreferrer">Download (generated/v1)</a>, <a href="https://github.com/hagezi/dns-blocklists" target="_blank" rel="noopener noreferrer">Hagezi</a>, <a href="https://github.com/jarelllama/Scam-Blocklist" target="_blank" rel="noopener noreferrer">Scam-Blocklist</a>. <strong>Allowlist (trusted domains):</strong> <a href="https://tranco-list.eu/" target="_blank" rel="noopener noreferrer">Tranco List</a> (1M), <a href="https://majestic.com/reports/majestic-million" target="_blank" rel="noopener noreferrer">Majestic Million</a> (1M).
+          </div>
+          <table className="storage-table">
+            <caption className="text-sm mb-2">Rough size of each Tier 1 feed: number of domains, file size when downloaded, and approximate RAM if we load the full list in memory.</caption>
+            <thead><tr><th>Feed</th><th>Domains</th><th>Size</th><th>RAM</th></tr></thead>
+            <tbody>
+              <tr><td>Phishing.Database</td><td>857k</td><td>~15 MB</td><td>~30 MB</td></tr>
+              <tr><td>Ultimate Hosts</td><td>1.39M</td><td>~25 MB</td><td>~50 MB</td></tr>
+              <tr><td>URLhaus</td><td>200k</td><td>~5 MB</td><td>~10 MB</td></tr>
+              <tr><td>PhishTank</td><td>15k</td><td>~500 KB</td><td>~1 MB</td></tr>
+              <tr><td><strong>Total (merged/deduped)</strong></td><td><strong>~2.5M unique</strong></td><td><strong>~40 MB</strong></td><td><strong>~80 MB</strong></td></tr>
+            </tbody>
+          </table>
+          <div className="card-inner text-sm">
+            <strong>How we keep the blocklist up to date:</strong> Every day at 02:00 UTC we download all Tier 1 threat feeds, merge them and remove duplicates, then remove any domain that is on our allowlist (so we do not block trusted sites). We write the result to a blocklist file; the agent loads it on startup or reload. We sync the allowlist (Tranco/Majestic) weekly.
+            <div className="mt-2 p-2" style={{ background: 'var(--warning-bg, #fff3cd)', border: '1px solid var(--warning-border, #ffc107)', borderRadius: '6px', color: 'black' }}>
+              <strong>⚠️ Before downloading:</strong> Visit the official Git repos (or project sites), review all data and documentation there, then download and use it. Do not download directly from source links without review.
             </div>
-            <ul className="feed-links">
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: "Whitelist & blacklist updates (how and when we sync trusted vs threat data)",
+    icon: ICON.sources,
+    content: (
+      <div className="space-y-6">
+        <div className="card-section card-section-sources">
+          <h3>How to update blacklist & whitelist (sync strategy)</h3>
+          <div className="card-inner">
+            <h4>Blacklist (known-bad domains – threat feeds)</h4>
+            <ul className="slide-points text-sm">
+              <li><strong>When and where:</strong> A scheduled job (e.g. 02:00 UTC) runs on the agent host or a separate worker. It downloads all Tier 1 threat feeds, merges and dedupes them, removes any domain that is on our allowlist, then writes a single blocklist file. The agent loads this file at startup or when it changes (e.g. SIGHUP or file watch), so we can avoid a full restart if we add hot-reload.</li>
+              <li><strong>Who holds the list:</strong> The blocklist lives in the agent only. The backend does not store it; it just forwards URLs to the agent. The agent does the “is this URL in the blocklist?” check.</li>
+              <li><strong>Respect sources:</strong> We do not download feeds every hour; we sync once per day so we do not overload the maintainers or hit rate limits.</li>
+              <li><strong>⚠️ Before downloading:</strong> Visit the official Git repos (or project sites), review all data and documentation there, then download and use it. Do not download data directly from source links without review.</li>
+            </ul>
+          </div>
+          <div className="card-inner">
+            <h4>Whitelist (known-good domains – Tranco/Majestic 1M)</h4>
+            <ul className="slide-points text-sm">
+              <li><strong>Built-in 500–1000 domains:</strong> A small list shipped with the app (no download, works offline). We update it with app releases. It covers Gmail, ChatGPT, Atlassian, and similar big sites so they are never wrongly flagged.</li>
+              <li><strong>Tranco List / Majestic Million:</strong> Each list has 1 million trusted domains. We sync them weekly to build the full allowlist. We can also use user feedback and a quarterly review to keep the list accurate.</li>
+            </ul>
+          </div>
+          <h3 className="slide-subtitle">Research: our source data updates daily or frequently (why we sync at least daily)</h3>
+          <div className="feed-card">
+            <p className="text-sm mb-2">
+              <strong>Why we sync at least daily:</strong> The lists we use (threat feeds and allowlists) are updated by their maintainers every day or more often. If we do not sync at least once per day, we miss new bad sites and new trusted sites.
+            </p>
+            <ul className="feed-links text-sm">
               <li>
+                <strong>Ultimate Hosts Blacklist (UHB):</strong> The maintainers update the list <strong>daily</strong>. The central repo (GitHub) is updated around 19:05–19:15 UTC; the official mirror (where we download from) is ready around 19:30 UTC. The list has about 1.39M bad domains and ~149k bad IPs. Source:{" "}
                 <a
                   href="https://github.com/Ultimate-Hosts-Blacklist/Ultimate.Hosts.Blacklist"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  GitHub: Ultimate-Hosts-Blacklist/Ultimate.Hosts.Blacklist
+                  UHB GitHub
                 </a>
-              </li>
-              <li>
+                . Mirror (download):{" "}
                 <a
                   href="https://hosts.ubuntu101.co.za/domains.list"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Domains list
+                  domains.list
                 </a>
-              </li>
-              <li>
+                ,{" "}
                 <a
                   href="https://hosts.ubuntu101.co.za/ips.list"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  IPs list
+                  ips.list
                 </a>
+                .
+              </li>
+              <li>
+                <strong>Phishing.Database, URLhaus, PhishTank:</strong> These are also updated daily or hourly by their maintainers. We run one sync per day (e.g. 02:00 UTC, after UHB is ready) so we stay current without overloading the sources with too many requests.
               </li>
             </ul>
           </div>
-          <div className="feed-card">
-            <h4>URLhaus (abuse.ch)</h4>
-            <div className="meta">
-              CC0 • ~200k malware URLs • Real-time • Near zero false positive
-            </div>
-            <ul className="feed-links">
-              <li>
-                <a
-                  href="https://urlhaus.abuse.ch/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Project: urlhaus.abuse.ch
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://urlhaus.abuse.ch/downloads/text/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Download (text)
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://urlhaus.abuse.ch/downloads/csv/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Download (CSV)
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div className="feed-card">
-            <h4>PhishTank</h4>
-            <div className="meta">
-              Free with attribution • ~15k active • Hourly • Cisco/OpenDNS
-            </div>
-            <ul className="feed-links">
-              <li>
-                <a
-                  href="https://www.phishtank.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Website: phishtank.com
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://data.phishtank.com/data/online-valid.csv"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Download: online-valid.csv
-                </a>
-              </li>
-            </ul>
+          <div className="card-inner text-sm mt-2">
+            <strong>Takeaway:</strong> Run one daily sync after the upstream lists are updated (e.g. after 19:30 UTC for UHB). In that run: download all feeds, merge and dedupe, remove any domain that is on our allowlist, then write the blocklist file and have the agent load it (restart or reload). That way we stay current without hammering the sources.
           </div>
         </div>
       </div>
     ),
   },
   {
-    title: "Tier 2, Allowlists & Integration strategy",
-    icon: ICON.sources,
-    content: (
-      <div className="space-y-6">
-        <div className="card-section card-section-sources">
-          <h3>Tier 2: Supplementary feeds</h3>
-          <div className="feed-card">
-            <ul className="feed-links">
-              <li>
-                <a
-                  href="https://github.com/sefinek/Sefinek-Blocklist-Collection"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Sefinek Blocklist Collection
-                </a>{" "}
-                – 6M+ domains, every 3h;{" "}
-                <a
-                  href="https://blocklist.sefinek.net/generated/v1/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Download
-                </a>{" "}
-                (verify license for commercial)
-              </li>
-              <li>
-                <a
-                  href="https://github.com/hagezi/dns-blocklists"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Hagezi DNS Blocklists
-                </a>{" "}
-                – Privacy + security, NRD tracking
-              </li>
-              <li>
-                <a
-                  href="https://github.com/jarelllama/Scam-Blocklist"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Scam-Blocklist
-                </a>{" "}
-                – 468k+ domains, NRD scams, daily
-              </li>
-            </ul>
-          </div>
-          <h3 className="slide-subtitle">Allowlist / whitelist sources</h3>
-          <div className="feed-card">
-            <ul className="feed-links">
-              <li>
-                <a
-                  href="https://tranco-list.eu/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Tranco List
-                </a>{" "}
-                – Top 1M sites, daily; use top 100k for fast-path
-              </li>
-              <li>
-                <a
-                  href="https://majestic.com/reports/majestic-million"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Majestic Million
-                </a>{" "}
-                – Top 1M by link count
-              </li>
-              <li>
-                <a
-                  href="https://radar.cloudflare.com/domains"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Cloudflare Radar Top Domains
-                </a>{" "}
-                – Real-time popular domains
-              </li>
-            </ul>
-          </div>
-          <h3 className="slide-subtitle">Daily sync & storage</h3>
-          <div className="card-inner">
-            <div className="text-sm">
-              02:00 UTC: download all feeds → merge & dedupe → remove
-              allowlisted (Tranco top 100k) → update local blocklist → restart
-              agent. Do not download hourly (respect maintainers).
-            </div>
-          </div>
-          <table className="storage-table">
-            <thead>
-              <tr>
-                <th>Feed</th>
-                <th>Domains</th>
-                <th>File size</th>
-                <th>Memory (hash set)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Phishing.Database</td>
-                <td>857k</td>
-                <td>~15 MB</td>
-                <td>~30 MB</td>
-              </tr>
-              <tr>
-                <td>Ultimate Hosts</td>
-                <td>1.39M</td>
-                <td>~25 MB</td>
-                <td>~50 MB</td>
-              </tr>
-              <tr>
-                <td>URLhaus</td>
-                <td>200k</td>
-                <td>~5 MB</td>
-                <td>~10 MB</td>
-              </tr>
-              <tr>
-                <td>PhishTank</td>
-                <td>15k</td>
-                <td>~500 KB</td>
-                <td>~1 MB</td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Total</strong>
-                </td>
-                <td>
-                  <strong>~2.5M unique</strong>
-                </td>
-                <td>
-                  <strong>~40 MB</strong>
-                </td>
-                <td>
-                  <strong>~80 MB RAM</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div className="card-inner mt-4">
-            <h4>Recommended sync</h4>
-            <div className="text-sm">
-              Phishing.Database, Ultimate Hosts, URLhaus, PhishTank: daily at
-              02:00 UTC. Allowlists (Tranco): weekly.
-            </div>
-          </div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Google APIs & Pre-implementation plan",
+    title: "Recommended flow, Google APIs & phases (7-step order and Phase 1–4 rollout)",
     icon: ICON.api,
     content: (
       <div className="space-y-6">
+        <div className="card-section card-section-plan">
+          <h3>7-step recommended flow (order of checks: allowlist → blocklist → heuristics → optional API → score → LLM → cache)</h3>
+          <ol className="slide-points text-sm">
+            <li><strong>Allowlist:</strong> If the URL’s domain is in our trusted list (built-in + Tranco/Majestic 1M), return SAFE immediately. No LLM, no slow checks.</li>
+            <li><strong>Blocklist:</strong> If the URL or domain is in our local threat list (from daily feeds), return DANGER immediately and show a dangerous-site notification.</li>
+            <li><strong>Heuristics:</strong> Run fast rules (e.g. domain age, typosquatting) and compute a risk score 0–100. If score ≥ 75, return DANGER. If ≥ 50, WARNING. If ≥ 25, CAUTION. Otherwise continue to next step.</li>
+            <li><strong>(Optional) Web Risk API:</strong> For URLs still unclear, we can call Google’s Web Risk API (paid). If it says bad, we block. If it fails or says nothing, we continue (fail open).</li>
+            <li><strong>URL features + content:</strong> Fetch the page and combine signals (WHOIS, DNS, SSL, content) into one aggregate risk score.</li>
+            <li><strong>LLM only for borderline:</strong> Call the LLM only when the aggregate score is in the middle (e.g. 40–60). For clearly safe or clearly bad we do not use the LLM.</li>
+            <li><strong>Tiered cache:</strong> Store the result with different expiry: SAFE = 24 h, CAUTION = 6 h, WARNING = 10 min, DANGER = 1 h. So wrong “safe” verdicts do not last too long.</li>
+          </ol>
+          <div className="card-inner text-sm mt-2">
+            <strong>Where this runs:</strong> The blocklist check is a new step in the agent, right after the allowlist. A daily sync job downloads feeds and writes the blocklist file; the agent loads it on startup or when the file changes.
+          </div>
+        </div>
         <div className="card-section card-section-sources">
-          <h3>Google Safe Browsing & Web Risk API</h3>
+          <h3>Google Safe Browsing & Web Risk API (commercial vs non-commercial options)</h3>
           <div className="card-inner">
-            <h4>Safe Browsing API v4</h4>
+            <h4>Safe Browsing API v4 (non-commercial use only – not for our product)</h4>
             <div className="text-sm">
               Non-commercial use only (since 2019). Not viable for commercial
               products. Terms:{" "}
@@ -782,11 +341,10 @@ const slides = [
             </div>
           </div>
           <div className="card-inner">
-            <h4>Web Risk API (commercial)</h4>
+            <h4>Web Risk API (commercial – pricing and our estimated cost)</h4>
             <div className="text-sm">
               Same URL reputation (phishing, malware, unwanted software, social
-              engineering). Free first 100k requests/month; then $200 per 400k
-              ($0.50/1k).{" "}
+              engineering). <strong>Pricing:</strong> Free first 100k requests/month; then $200 per 400k requests ($0.50 per 1k).{" "}
               <a
                 href="https://cloud.google.com/web-risk"
                 target="_blank"
@@ -796,33 +354,31 @@ const slides = [
               </a>
               .
             </div>
+            <div className="text-sm mt-2 card-inner" style={{ background: 'var(--card-bg, #f8f9fa)', padding: '0.75rem', borderRadius: '6px', color:'red', fontWeight: 'bold' }}>
+              <strong>Estimated cost for us (initial):</strong> Assume 1,500 users, each visiting at least 500 URLs per day → 1,500 × 500 = <strong>750,000 requests/day</strong> → ~22.5M requests/month (×30). First 100k free; 22.5M − 100k ≈ 22.4M paid. 22.4M ÷ 400k × $200 = <strong>~$11,200/month</strong>. The total cost we need to bear is very cheap initially. As we add allowlist/blocklist, most URLs never hit the API, so actual cost will be lower.
+            </div>
           </div>
         </div>
         <div className="card-section card-section-plan">
-          <h3>{ICON.phases} Pre-implementation phases</h3>
+          <h3>{ICON.phases} Pre-implementation phases (Phase 1 → 2 → 3 → 4)</h3>
           <div className="card-inner card-inner-plan">
-            <h4>Phase 1 – Allowlist expansion</h4>
+            <h4>Phase 1 – Allowlist expansion (built-in + Tranco/Majestic 1M)</h4>
             <div className="text-sm">
-              Built-in 500–1000 domains; apex + subdomain match; optional
-              desktop cache; success: Gmail/ChatGPT/Atlassian no warnings.
+              We add a built-in list of 500–1000 trusted domains (no download, works offline) and sync Tranco/Majestic 1M domains weekly for the full allowlist. We match both the main domain (apex) and subdomains (e.g. mail.google.com if google.com is trusted). Optionally the desktop can cache “safe” so repeat visits do not hit the backend. <strong>Success looks like:</strong> Gmail, ChatGPT, and Atlassian never show a warning.
             </div>
           </div>
           <div className="card-inner card-inner-plan">
-            <h4>Phase 2 – Threat feed integration</h4>
+            <h4>Phase 2 – Threat feed integration (blocklist before LLM, known-bad in &lt;10 ms)</h4>
             <div className="text-sm">
-              Download pipeline for Tier 1 feeds; local DB/in-memory set; agent
-              checks blocklist before LLM; known-bad in &lt;10ms.
+              We build a pipeline that downloads Tier 1 threat feeds daily and keeps a local list (in-memory or on disk). The agent checks this blocklist right after the allowlist and before calling the LLM. Any URL that is known-bad gets a DANGER result in under 10 milliseconds.
             </div>
           </div>
           <div className="card-inner card-inner-plan">
             <h4>
-              Phase 3 – Multi-tier notifications • Phase 4 – Caching &
-              robustness
+              Phase 3 – Multi-tier notifications (notifications only, no in-app banners) • Phase 4 – Caching & robustness (tiered TTL, retry)
             </h4>
             <div className="text-sm">
-              Map verdicts to safe/caution/warning/danger; only WARNING/DANGER
-              system notification. Tiered TTL; retry/fallback; login-walled
-              heuristic.
+              <strong>Phase 3:</strong> We show only system notifications (no in-app banners or in-app alerts). Two notification types: DANGER = critical system notification (popup); CAUTION (warning) = warning system notification (popup). Both are system-level notifications so the user sees them consistently. <strong>Phase 4:</strong> We use different cache durations per verdict (tiered TTL), add retry and fallback when services fail, and use a login-walled heuristic where needed.
             </div>
           </div>
           <div className="text-sm mt-2">
@@ -833,243 +389,62 @@ const slides = [
     ),
   },
   {
-    title: "Scenarios covered by enhancement",
+    title: "Scenarios covered by enhancement (what happens in each user case)",
     icon: ICON.scenarios,
     content: (
       <div className="card-section card-section-plan">
-        <h3>{ICON.scenarios} Scenarios</h3>
+        <h3>{ICON.scenarios} Scenarios (user visits Gmail, known phishing, unknown site, LLM down, etc.)</h3>
         <ul className="slide-points">
           <li>
-            <strong>User visits Gmail/ChatGPT/Atlassian:</strong> Layer 1
-            allowlist → no backend/LLM → no false positive.
+            <strong>User visits Gmail, ChatGPT, or Atlassian:</strong> The agent finds the domain on the allowlist (Layer 1) and returns SAFE without calling the LLM. The user sees no warning (no false positive).
           </li>
           <li>
-            <strong>Known phishing URL:</strong> Layer 2 blocklist → instant
-            block + notification.
+            <strong>User visits a known phishing URL:</strong> The agent finds the URL or domain on the blocklist (Layer 2) and returns DANGER immediately. We show a dangerous-site (system) notification.
           </li>
           <li>
-            <strong>Unknown legit site:</strong> Agent full pipeline; SAFE or
-            CAUTION; CAUTION → in-app only.
+            <strong>User visits an unknown but legitimate site:</strong> The URL is not on allowlist or blocklist. The agent runs the full pipeline (heuristics, content, maybe LLM). Result is safe or caution. Safe = no notification; caution = we show a warning system notification (no in-app banners).
           </li>
           <li>
-            <strong>Unknown suspicious site:</strong> WARNING or DANGER → system
-            notification.
+            <strong>User visits an unknown suspicious site:</strong> The agent returns warning (caution) or danger. We show only system notifications: CAUTION = warning notification (system popup); DANGER = critical notification (system popup). No in-app banners.
           </li>
           <li>
-            <strong>LLM or feed down:</strong> Allowlist + blocklist still work;
-            agent fallback to heuristics.
+            <strong>LLM or a feed is down (after Phase 2):</strong> The allowlist and blocklist still work (they are local). For URLs that need deeper analysis, the agent falls back to heuristics instead of the LLM so we still give a result.
           </li>
           <li>
-            <strong>New domain:</strong> Full agent analysis; tiered verdict and
-            notification.
+            <strong>Brand-new or rare domain:</strong> We run the full agent analysis and return a verdict (safe / caution / danger) and show the right notification type for that verdict.
           </li>
         </ul>
       </div>
     ),
   },
   {
-    title: "Metrics: primary, performance, quality, business",
-    icon: ICON.metrics,
-    content: (
-      <div className="space-y-6">
-        <div className="card-section card-section-metrics">
-          <h3>Primary & performance (from plan §8)</h3>
-          <table className="metrics-table">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>Current</th>
-                <th>Target</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>False positive rate</td>
-                <td>15–20%</td>
-                <td>&lt;1%</td>
-              </tr>
-              <tr>
-                <td>True positive rate</td>
-                <td>70–80%</td>
-                <td>&gt;95%</td>
-              </tr>
-              <tr>
-                <td>User satisfaction</td>
-                <td>Unknown</td>
-                <td>&gt;4.5/5</td>
-              </tr>
-              <tr>
-                <td>Notification volume</td>
-                <td>Baseline</td>
-                <td>−90%</td>
-              </tr>
-              <tr>
-                <td>Avg latency known-good</td>
-                <td>15–30s</td>
-                <td>&lt;10 ms</td>
-              </tr>
-              <tr>
-                <td>Avg latency known-bad</td>
-                <td>15–30s</td>
-                <td>&lt;10 ms</td>
-              </tr>
-              <tr>
-                <td>Avg latency unknown</td>
-                <td>15–30s</td>
-                <td>&lt;3 s</td>
-              </tr>
-              <tr>
-                <td>Backend load</td>
-                <td>Baseline</td>
-                <td>−90%</td>
-              </tr>
-              <tr>
-                <td>LLM API costs</td>
-                <td>Baseline</td>
-                <td>−95%</td>
-              </tr>
-            </tbody>
-          </table>
-          <h3 className="slide-subtitle">Quality & business</h3>
-          <table className="storage-table">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>Target</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Allowlist coverage</td>
-                <td>Top 100k (Tranco)</td>
-              </tr>
-              <tr>
-                <td>Threat detection rate</td>
-                <td>&gt;95% (PhishTank test set)</td>
-              </tr>
-              <tr>
-                <td>Feed update success</td>
-                <td>&gt;99%</td>
-              </tr>
-              <tr>
-                <td>Cache hit rate</td>
-                <td>&gt;85%</td>
-              </tr>
-              <tr>
-                <td>User retention</td>
-                <td>+10%</td>
-              </tr>
-              <tr>
-                <td>Support tickets</td>
-                <td>−50%</td>
-              </tr>
-              <tr>
-                <td>App store rating</td>
-                <td>+0.5 stars</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Strategic roadmap (phases & effort)",
-    icon: ICON.phases,
-    content: (
-      <div className="card-section card-section-plan">
-        <h3>Implementation roadmap (§7)</h3>
-        <table className="storage-table">
-          <thead>
-            <tr>
-              <th>Phase</th>
-              <th>Priority</th>
-              <th>Focus</th>
-              <th>Impact</th>
-              <th>Effort</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Phase 1</td>
-              <td>🔴 Critical</td>
-              <td>Allowlist expansion</td>
-              <td>Eliminate 90% false positives</td>
-              <td>1–2 days</td>
-            </tr>
-            <tr>
-              <td>Phase 2</td>
-              <td>🔴 Critical</td>
-              <td>Threat feed integration</td>
-              <td>Catch 90% known threats instantly</td>
-              <td>3–5 days</td>
-            </tr>
-            <tr>
-              <td>Phase 3</td>
-              <td>🟡 High</td>
-              <td>Multi-tier notifications</td>
-              <td>Reduce notification fatigue</td>
-              <td>2–3 days</td>
-            </tr>
-            <tr>
-              <td>Phase 4</td>
-              <td>🟢 Medium</td>
-              <td>Performance & optimization</td>
-              <td>Speed, accuracy, tiered cache</td>
-              <td>5–7 days</td>
-            </tr>
-          </tbody>
-        </table>
-        <div className="card-inner card-inner-plan mt-4">
-          <h4>Rollout</h4>
-          <div className="text-sm">
-            Deploy staging → test 50 legitimate domains → production → monitor
-            48h. Order: Phase 1 → 2 → 3 → 4. Total timeline: 11–17 days.
-          </div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Risks & mitigation (§9)",
+    title: "Risks & mitigation (from plan §9 – technical and business)",
     icon: ICON.cons,
     content: (
       <div className="card-section card-section-cons">
-        <h3>Technical risks</h3>
+        <h3>Technical risks (what can go wrong and how we handle it)</h3>
         <div className="card-inner card-inner-cons">
           <h4>
-            Allowlist stale / Threat feeds false positives / Memory / Feed
-            download failures
+            Allowlist stale / Threat feeds false positives / Memory / Feed download failures (and mitigations)
           </h4>
           <ul className="text-sm">
-            <li>Allowlist: weekly Tranco, user feedback, quarterly review.</li>
-            <li>
-              Feeds: use high-quality (PhishingDB, URLhaus); cross-reference 2+
-              sources; subtract allowlist.
-            </li>
-            <li>
-              Memory: Bloom filters, LRU; desktop subset ~100k; alert at 80%.
-            </li>
-            <li>
-              Downloads: persist to disk, use stale if fail; fallback to
-              heuristics + LLM; alert if &gt;24h.
-            </li>
+            <li><strong>Allowlist goes stale:</strong> We sync Tranco/Majestic (1M domains) weekly, use user feedback, and do a quarterly review so trusted sites stay on the list and we do not block them.</li>
+            <li><strong>Threat feeds give false positives:</strong> We use high-quality feeds (PhishingDB, URLhaus), cross-reference at least two sources, and remove any domain that is on our allowlist so we do not block trusted sites.</li>
+            <li><strong>Memory usage:</strong> We can use Bloom filters or LRU caches; on the desktop we can keep a subset (e.g. ~100k). We alert when memory use reaches 80% so we can act before it becomes a problem.</li>
+            <li><strong>Feed download fails:</strong> We persist the last good blocklist to disk. If a download fails we keep using the previous file (stale is better than empty). We fall back to heuristics + LLM for analysis and alert if we have not updated for more than 24 hours.</li>
           </ul>
         </div>
-        <h3 className="slide-subtitle">Business & operational</h3>
+        <h3 className="slide-subtitle">Business & operational risks (licensing, liability, deployment)</h3>
         <div className="card-inner card-inner-cons">
           <ul className="text-sm">
             <li>
-              <strong>Licensing:</strong> Use MIT/CC0 feeds only; legal review;
-              maintain attribution.
+              <strong>Licensing:</strong> We use only feeds with permissive licenses (MIT/CC0). We get legal review and keep attribution as required by each source.
             </li>
             <li>
-              <strong>Liability:</strong> Disclaimers; user override; logging;
-              E&amp;O insurance.
+              <strong>Liability:</strong> We use disclaimers, allow user override where appropriate, and log decisions. We consider E&amp;O insurance for product liability.
             </li>
             <li>
-              <strong>Deployment:</strong> Phased rollout, feature flags,
-              blue-green, rollback plan.
+              <strong>Deployment:</strong> We roll out in phases, use feature flags to turn layers on/off, and use blue-green or similar so we can roll back quickly if something goes wrong.
             </li>
           </ul>
         </div>
@@ -1077,238 +452,140 @@ const slides = [
     ),
   },
   {
-    title: "Conclusion & next steps",
+    title: "Conclusion & next steps (summary of improvements and what to do after approval)",
     icon: ICON.plan,
     content: (
       <div className="card-section card-section-plan">
-        <h3>Summary of improvements (from plan)</h3>
+        <h3>Summary of improvements (from plan – what we get after Phase 1–4)</h3>
         <ul className="slide-points">
           <li>
-            ✅ False positives eliminated: built-in allowlist + Tranco top 100k.
+            ✅ <strong>Fewer false positives:</strong> With a built-in allowlist and Tranco/Majestic 1M domains synced weekly, safe sites (e.g. Gmail, ChatGPT) are no longer wrongly flagged.
           </li>
-          <li>✅ Known threats detected: 2.5M domain threat intel.</li>
-          <li>✅ Fast response: &lt;10 ms for 95% of URLs.</li>
-          <li>✅ Better UX: tiered notifications reduce fatigue.</li>
-          <li>✅ Reliable: no single point of failure.</li>
-          <li>✅ Cost efficient: 95% reduction in LLM costs.</li>
+          <li>✅ <strong>Known threats caught:</strong> We check 2.5M+ known-bad domains from threat feeds, so most real phishing URLs are blocked quickly.</li>
+          <li>✅ <strong>Faster response:</strong> For about 95% of URLs we can answer in under 10 ms (allowlist + blocklist), instead of 15–30 seconds.</li>
+          <li>✅ <strong>Better UX:</strong> We show only system notifications (no in-app banners): two types — warning (caution) and critical (danger) — so users see consistent, clear alerts and are more likely to pay attention to real threats.</li>
+          <li>✅ <strong>More reliable:</strong> We do not depend on a single LLM call; allowlist and blocklist work even if the LLM or a feed is down.</li>
+          <li>✅ <strong>Lower cost:</strong> We use the LLM only for borderline URLs, so LLM cost drops by about 95%.</li>
         </ul>
-        <h3 className="slide-subtitle">Expected outcomes</h3>
+        <h3 className="slide-subtitle">Expected outcomes (target metrics)</h3>
         <div className="text-sm">
-          False positive &lt;1%; true positive &gt;95%; latency &lt;10 ms
-          (known); user satisfaction +2 points; backend cost −50%. Timeline:
-          11–17 days.
+          <strong>Target numbers:</strong> False positive rate under 1%; true positive (correctly flagged bad sites) over 95%; latency under 10 ms for known-good/bad URLs; user satisfaction up by about 2 points; backend cost down by about 50%.
         </div>
-        <h3 className="slide-subtitle">Next steps</h3>
+        <h3 className="slide-subtitle">Next steps (what to do after approval – Phase 1 then Phase 2)</h3>
         <ul className="slide-points">
           <li>
             Review and approve plan → assign resources → Phase 1 immediately →
-            staging within 3 days → production rollout from day 7.
+            phased rollout: staging → production after validation.
+          </li>
+          <li>
+            Phase 1: extend agent allowlist (built-in + Tranco/Majestic 1M). Phase 2: agent blocklist + daily sync job. Phase 3: notifications only (two system notification types). Phase 4: tiered TTL, retry, fallback, robustness.
           </li>
         </ul>
       </div>
     ),
   },
   {
-    title: "Sources & references (all links)",
+    title: "Sources & references (all links to feeds, APIs and docs)",
     icon: ICON.links,
     content: (
       <div className="card-section card-section-sources">
-        <h3>{ICON.links} Tier 1 – Threat intelligence feeds</h3>
+        <h3>{ICON.links} Tier 1 – Threat intelligence feeds (must-integrate blocklist sources)</h3>
+        <p className="text-sm mb-2" style={{ opacity: 0.9 }}>
+          These are lists of <strong>known-bad</strong> domains and URLs (phishing, malware, scam sites). We must integrate them so we can block known threats in under 10 ms without calling the LLM. Each source is updated daily; we download and merge them once per day.
+        </p>
+        <div className="text-sm mb-3 p-2" style={{ background: 'var(--warning-bg, #fff3cd)', border: '1px solid var(--warning-border, #ffc107)', borderRadius: '6px', color:'black' }}>
+          <strong>⚠️ Warning:</strong> Do not download data directly from source links without review. It's just for the refrence. First <strong>visit the official Git repos</strong> (or project sites), <strong>review the data and documentation</strong> there, then download and use it.
+        </div>
         <ul className="sources-list">
           <li>
-            Phishing.Database:{" "}
-            <a
-              href="https://github.com/Phishing-Database/Phishing.Database"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GitHub
-            </a>{" "}
-            •{" "}
-            <a
-              href="https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Active domains
-            </a>{" "}
-            •{" "}
-            <a
-              href="https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-links-ACTIVE.txt"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Active links
-            </a>
+            <strong>Phishing.Database</strong> — Open-source list of phishing domains and URLs (~857k).{" "}
+            <a href="https://github.com/Phishing-Database/Phishing.Database" target="_blank" rel="noopener noreferrer">GitHub (project)</a>
+            {" • "}
+            <a href="https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt" target="_blank" rel="noopener noreferrer">Active domains (download)</a>
+            {" • "}
+            <a href="https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-links-ACTIVE.txt" target="_blank" rel="noopener noreferrer">Active links (download)</a>
           </li>
           <li>
-            Ultimate Hosts Blacklist:{" "}
-            <a
-              href="https://github.com/Ultimate-Hosts-Blacklist/Ultimate.Hosts.Blacklist"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GitHub
-            </a>{" "}
-            •{" "}
-            <a
-              href="https://hosts.ubuntu101.co.za/domains.list"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              domains.list
-            </a>{" "}
-            •{" "}
-            <a
-              href="https://hosts.ubuntu101.co.za/ips.list"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              ips.list
-            </a>
+            <strong>Ultimate Hosts Blacklist</strong> — Large blocklist of bad domains and IPs (~1.4M).{" "}
+            <a href="https://github.com/Ultimate-Hosts-Blacklist/Ultimate.Hosts.Blacklist" target="_blank" rel="noopener noreferrer">GitHub (project)</a>
+            {" • "}
+            <a href="https://hosts.ubuntu101.co.za/domains.list" target="_blank" rel="noopener noreferrer">domains.list (download bad domains)</a>
+            {" • "}
+            <a href="https://hosts.ubuntu101.co.za/ips.list" target="_blank" rel="noopener noreferrer">ips.list (download bad IPs)</a>
           </li>
           <li>
-            URLhaus:{" "}
-            <a
-              href="https://urlhaus.abuse.ch/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Project
-            </a>{" "}
-            •{" "}
-            <a
-              href="https://urlhaus.abuse.ch/downloads/text/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Text
-            </a>{" "}
-            •{" "}
-            <a
-              href="https://urlhaus.abuse.ch/downloads/csv/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              CSV
-            </a>
+            <strong>URLhaus</strong> — Malware and phishing URLs from abuse.ch (~200k).{" "}
+            <a href="https://urlhaus.abuse.ch/" target="_blank" rel="noopener noreferrer">Project (info)</a>
+            {" • "}
+            <a href="https://urlhaus.abuse.ch/downloads/text/" target="_blank" rel="noopener noreferrer">Text (download)</a>
+            {" • "}
+            <a href="https://urlhaus.abuse.ch/downloads/csv/" target="_blank" rel="noopener noreferrer">CSV (download)</a>
           </li>
           <li>
-            PhishTank:{" "}
-            <a
-              href="https://www.phishtank.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Website
-            </a>{" "}
-            •{" "}
-            <a
-              href="https://data.phishtank.com/data/online-valid.csv"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              online-valid.csv
-            </a>
+            <strong>PhishTank</strong> — Community-reported phishing URLs (~15k).{" "}
+            <a href="https://www.phishtank.com/" target="_blank" rel="noopener noreferrer">Website (info)</a>
+            {" • "}
+            <a href="https://data.phishtank.com/data/online-valid.csv" target="_blank" rel="noopener noreferrer">online-valid.csv (download current list)</a>
           </li>
         </ul>
-        <h3 className="slide-subtitle">Tier 2 – Supplementary</h3>
+        <h3 className="slide-subtitle">Tier 2 – Supplementary blocklist feeds (optional)</h3>
+        <p className="text-sm mb-2" style={{ opacity: 0.9 }}>
+          Extra blocklists we can add for broader coverage. Not required for the first release; use if we want more protection against scam and abuse domains.
+        </p>
         <ul className="sources-list">
           <li>
-            <a
-              href="https://github.com/sefinek/Sefinek-Blocklist-Collection"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Sefinek Blocklist Collection
-            </a>{" "}
-            •{" "}
-            <a
-              href="https://blocklist.sefinek.net/generated/v1/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Download
-            </a>
+            <strong>Sefinek Blocklist Collection</strong> — Large optional blocklist (6M+ entries). Verify license (CC BY-NC-ND) for commercial use before production.{" "}
+            <a href="https://github.com/sefinek/Sefinek-Blocklist-Collection" target="_blank" rel="noopener noreferrer">GitHub (project)</a>
+            {" • "}
+            <a href="https://blocklist.sefinek.net/generated/v1/" target="_blank" rel="noopener noreferrer">Download (blocklist files)</a>
           </li>
           <li>
-            <a
-              href="https://github.com/hagezi/dns-blocklists"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Hagezi DNS Blocklists
-            </a>
+            <strong>Hagezi DNS Blocklists</strong> — DNS-level blocklists for malware, phishing, and ads.{" "}
+            <a href="https://github.com/hagezi/dns-blocklists" target="_blank" rel="noopener noreferrer">GitHub (project & download)</a>
           </li>
           <li>
-            <a
-              href="https://github.com/jarelllama/Scam-Blocklist"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Scam-Blocklist
-            </a>
+            <strong>Scam-Blocklist</strong> — Community list of scam and phishing domains.{" "}
+            <a href="https://github.com/jarelllama/Scam-Blocklist" target="_blank" rel="noopener noreferrer">GitHub (project & download)</a>
           </li>
         </ul>
-        <h3 className="slide-subtitle">Allowlist sources</h3>
+        <h3 className="slide-subtitle">Allowlist sources (trusted-domain lists – Tranco, Majestic)</h3>
+        <p className="text-sm mb-2" style={{ opacity: 0.9 }}>
+          Lists of <strong>trusted, popular</strong> domains (e.g. top 1 million by traffic). If a URL’s domain is on the allowlist, we treat it as safe and skip all other checks — so Gmail, ChatGPT, and similar sites never show a warning.
+        </p>
         <ul className="sources-list">
           <li>
-            <a
-              href="https://tranco-list.eu/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Tranco List
-            </a>
+            <strong>Tranco List</strong> — Top 1M domains by traffic (research-backed ranking).{" "}
+            <a href="https://tranco-list.eu/" target="_blank" rel="noopener noreferrer">Website (info & download)</a>
           </li>
           <li>
-            <a
-              href="https://majestic.com/reports/majestic-million"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Majestic Million
-            </a>
-          </li>
-          <li>
-            <a
-              href="https://radar.cloudflare.com/domains"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Cloudflare Radar Top Domains
-            </a>
+            <strong>Majestic Million</strong> — Top 1M domains by backlink count (trusted, popular sites).{" "}
+            <a href="https://majestic.com/reports/majestic-million" target="_blank" rel="noopener noreferrer">Website (info & download)</a>
           </li>
         </ul>
-        <h3 className="slide-subtitle">Google Safe Browsing & Web Risk API</h3>
+        <h3 className="slide-subtitle">Google Safe Browsing & Web Risk API (links to usage and docs)</h3>
+        <p className="text-sm mb-2" style={{ opacity: 0.9 }}>
+          <strong>Safe Browsing v4</strong> is free but for non-commercial use only (not for our product). <strong>Web Risk API</strong> is the paid, commercial option: we use it for URLs that are not on our allowlist or blocklist, to get Google’s verdict (phishing, malware, etc.). First 100k requests/month free; then paid.
+        </p>
         <ul className="sources-list">
           <li>
-            <a
-              href="https://developers.google.com/safe-browsing/v4/usage-limits"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Safe Browsing API v4 – usage limits
-            </a>
+            <strong>Safe Browsing API v4</strong> — Free URL check API; non-commercial use only (not for our product).{" "}
+            <a href="https://developers.google.com/safe-browsing/v4/usage-limits" target="_blank" rel="noopener noreferrer">Usage limits (docs)</a>
           </li>
           <li>
-            <a
-              href="https://cloud.google.com/web-risk"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Google Web Risk API
-            </a>
+            <strong>Google Web Risk API</strong> — Paid commercial API for phishing/malware checks; we use it for URLs not on our lists.{" "}
+            <a href="https://cloud.google.com/web-risk" target="_blank" rel="noopener noreferrer">Documentation (docs & pricing)</a>
           </li>
         </ul>
-        <h3 className="slide-subtitle">Documentation</h3>
+        <h3 className="slide-subtitle">Documentation (plan doc and repo references)</h3>
+        <p className="text-sm mb-2" style={{ opacity: 0.9 }}>
+          The full improvement plan (what we build, in what order, and why) is in the repo. Our code lives in three GitHub repos: desktop app, backend, and URL-safety agent.
+        </p>
         <ul className="sources-list">
           <li>
-            Source: <strong>URL_SAFETY_SYSTEM_IMPROVEMENT_PLAN.md</strong> (repo
-            root)
+            Plan document: <strong>URL_SAFETY_SYSTEM_IMPROVEMENT_PLAN.md</strong> (repo root)
           </li>
           <li>
-            GitHub repos: spam-site-desktop, spam-site-backend, spam-site-agent
+            GitHub repos: <strong>spam-site-desktop</strong>, <strong>spam-site-backend</strong>, <strong>spam-site-agent</strong>
           </li>
         </ul>
       </div>
