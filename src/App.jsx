@@ -1325,18 +1325,67 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowLeft") {
+        goTo(index - 1);
+      } else if (e.key === "ArrowRight") {
+        goTo(index + 1);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [index, goTo]);
+
   const slide = slides[index];
   const isTitleSlide = slide.type === "title";
 
   return (
     <div className="pres-container">
       <header className="pres-header">
-        <span className="pres-header-title">
-          URL Safety – Real-Time Threat Notification
-        </span>
-        <span className="pres-header-count">
-          {index + 1} / {SLIDE_COUNT}
-        </span>
+        <div className="pres-header-left">
+          <button
+            type="button"
+            className="pres-nav-btn"
+            onClick={() => goTo(index - 1)}
+            disabled={index === 0}
+            aria-label="Previous slide"
+          >
+            ← Previous
+          </button>
+        </div>
+        <div className="pres-header-center">
+          <span className="pres-header-count">
+            {index + 1} / {SLIDE_COUNT}
+          </span>
+          <span className="pres-header-slide-title" title={slide.title}>
+            {slide.title}
+          </span>
+          <div className="pres-dots pres-dots-below-title" role="tablist" aria-label="Slide index">
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                role="tab"
+                aria-selected={i === index}
+                aria-label={`Slide ${i + 1}`}
+                className={i === index ? "active" : ""}
+                onClick={() => goTo(i)}
+              />
+            ))}
+          </div>
+        </div>
+        <nav className="pres-header-right" aria-label="Slide navigation">
+          <button
+            type="button"
+            className="pres-nav-btn btn-next"
+            onClick={() => goTo(index + 1)}
+            disabled={index === SLIDE_COUNT - 1}
+            aria-label="Next slide"
+          >
+            Next →
+          </button>
+        </nav>
       </header>
 
       <main
@@ -1356,39 +1405,6 @@ function App() {
           {slide.content}
         </div>
       </main>
-
-      <nav className="pres-nav" aria-label="Slide navigation">
-        <button
-          type="button"
-          onClick={() => goTo(index - 1)}
-          disabled={index === 0}
-          aria-label="Previous slide"
-        >
-          ← Previous
-        </button>
-        <div className="pres-dots" role="tablist" aria-label="Slide index">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              role="tab"
-              aria-selected={i === index}
-              aria-label={`Slide ${i + 1}`}
-              className={i === index ? "active" : ""}
-              onClick={() => goTo(i)}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          className="btn-next"
-          onClick={() => goTo(index + 1)}
-          disabled={index === SLIDE_COUNT - 1}
-          aria-label="Next slide"
-        >
-          Next →
-        </button>
-      </nav>
     </div>
   );
 }
