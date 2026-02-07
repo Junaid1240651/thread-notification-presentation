@@ -1,0 +1,449 @@
+/* ===== Vite-project style: gradient bg, header, card, footer ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a);
+  color: #e2e8f0;
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.pres-container {
+  height: 100vh;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ===== Header – fixed at top ===== */
+.pres-header {
+  flex-shrink: 0;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #334155;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pres-header-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: linear-gradient(to right, #22d3ee, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pres-header-count {
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+/* ===== Main content area – only this section scrolls ===== */
+.pres-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1.5rem 1rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a);
+}
+
+.pres-card {
+  max-width: 72rem;
+  width: 100%;
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(8px);
+  border-radius: 1rem;
+  border: 1px solid #475569;
+  padding: 2rem 2.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Title slide ===== */
+.slide-title-only h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  background: linear-gradient(to right, #22d3ee, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 1rem;
+}
+
+.slide-title-only .subtitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 0 0 2rem;
+}
+
+.slide-title-only .intro {
+  padding-top: 2rem;
+  border-top: 1px solid #334155;
+  font-size: 1.125rem;
+  color: #cbd5e1;
+}
+
+/* ===== Slide title (inside card) ===== */
+.slide-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0 0 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.slide-title-icon {
+  font-size: 1.35rem;
+}
+
+/* ===== Gradient section cards (like BackendPromptPresentation) ===== */
+.card-section {
+  border-radius: 0.75rem;
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid transparent;
+}
+
+.card-section-flow {
+  background: linear-gradient(to right, rgba(59, 130, 246, 0.15), rgba(34, 211, 238, 0.15));
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.card-section-cons {
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.15), rgba(249, 115, 22, 0.15));
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.card-section-plan {
+  background: linear-gradient(to right, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.15));
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.card-section-sources {
+  background: linear-gradient(to right, rgba(168, 85, 247, 0.12), rgba(236, 72, 153, 0.12));
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+.card-section-metrics {
+  background: linear-gradient(to right, rgba(234, 179, 8, 0.12), rgba(245, 158, 11, 0.12));
+  border-color: rgba(234, 179, 8, 0.35);
+}
+
+.card-section h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 1rem;
+}
+
+.card-section-flow h3 { color: #60a5fa; }
+.card-section-cons h3 { color: #f87171; }
+.card-section-plan h3 { color: #4ade80; }
+.card-section-sources h3 { color: #c084fc; }
+.card-section-metrics h3 { color: #facc15; }
+
+.card-inner {
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid #334155;
+}
+
+.card-inner:last-child {
+  margin-bottom: 0;
+}
+
+.card-inner h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.card-inner-flow h4 { color: #38bdf8; }
+.card-inner-cons h4 { color: #fb923c; }
+.card-inner-plan h4 { color: #34d399; }
+
+.card-inner .text-sm {
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.card-inner ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.card-inner li {
+  margin-bottom: 0.25rem;
+}
+
+/* ===== Flow diagram ===== */
+.flow-diagram {
+  margin: 0.75rem 0;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  border: 1px solid #334155;
+}
+
+.flow-diagram .box {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background: #334155;
+  border-radius: 4px;
+  margin: 0.1rem 0;
+  color: #f1f5f9;
+}
+
+.flow-diagram .arrow {
+  color: #64748b;
+  margin: 0 0.2rem;
+}
+
+.flow-row {
+  margin: 0.2rem 0;
+}
+
+.flow-row-hint {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+/* ===== Tables ===== */
+.metrics-table,
+.storage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0;
+}
+
+.metrics-table th,
+.metrics-table td,
+.storage-table th,
+.storage-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border: 1px solid #334155;
+}
+
+.metrics-table th,
+.storage-table th {
+  background: rgba(51, 65, 85, 0.6);
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.metrics-table tbody tr:hover td,
+.storage-table tbody tr:hover td {
+  background: rgba(51, 65, 85, 0.2);
+}
+
+/* ===== Links ===== */
+.sources-list,
+.feed-links {
+  margin: 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.sources-list li,
+.feed-links li {
+  margin-bottom: 0.35rem;
+}
+
+.sources-list a,
+.feed-links a,
+.pres-link {
+  color: #60a5fa;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sources-list a:hover,
+.feed-links a:hover,
+.pres-link:hover {
+  color: #93c5fd;
+  border-bottom-color: #60a5fa;
+}
+
+.sources-list a:focus,
+.feed-links a:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* ===== Sub-headings ===== */
+.slide-subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.slide-subtitle:first-of-type {
+  margin-top: 0;
+}
+
+/* ===== Bullet lists ===== */
+.slide-points {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.65;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.slide-points li {
+  margin-bottom: 0.4rem;
+}
+
+.slide-points li strong {
+  color: #e2e8f0;
+}
+
+/* ===== Footer – fixed at bottom ===== */
+.pres-nav {
+  flex-shrink: 0;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid #334155;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pres-nav button {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: #334155;
+  color: #f8fafc;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pres-nav button:hover:not(:disabled) {
+  background: #475569;
+}
+
+.pres-nav button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pres-nav .btn-next {
+  background: #06b6d4;
+  color: #0f172a;
+}
+
+.pres-nav .btn-next:hover:not(:disabled) {
+  background: #22d3ee;
+}
+
+/* Pill dots ===== */
+.pres-dots {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.pres-dots button {
+  width: 0.5rem;
+  height: 0.5rem;
+  padding: 0;
+  border-radius: 9999px;
+  border: none;
+  background: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pres-dots button:hover {
+  background: #64748b;
+}
+
+.pres-dots button.active {
+  width: 1.75rem;
+  background: #22d3ee;
+}
+
+/* ===== Spacing utilities ===== */
+.space-y-6 > * + * {
+  margin-top: 1.5rem;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}
+
+/* ===== Feed card (Tier 1/2 detail) ===== */
+.feed-card {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.feed-card h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 0 0 0.5rem;
+}
+
+.feed-card .meta {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.feed-card ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.feed-card a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.feed-card a:hover {
+  text-decoration: underline;
+}
